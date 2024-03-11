@@ -1,4 +1,4 @@
-Simple project that uses PhotoPicker to select a photo from the user's libary. 
+Simple project that uses PhotoPicker to select a photo from the user's library. 
 
 Upon selection, photo is uploaded to CloudKit.
 
