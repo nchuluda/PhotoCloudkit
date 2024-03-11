@@ -4,4 +4,4 @@ Upon selection, photo is uploaded to CloudKit.
 
 Photos on CloudKit server are fetched and displayed to the user.
 
-If cloning this project, make sure to set up a CloudKit container in XCode.
+If cloning this project, make sure to set up a CloudKit container in XCode before running the app.
