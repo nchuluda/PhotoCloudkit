@@ -21,7 +21,6 @@ class Model: ObservableObject {
     }
     
     func addPhoto(photo: Photo) async throws {
-        print("addPhoto() called")
         let record = try await db.save(photo.record)
         guard let photo = Photo(record: record) else { return }
         photosDictionary[photo.recordId!] = photo

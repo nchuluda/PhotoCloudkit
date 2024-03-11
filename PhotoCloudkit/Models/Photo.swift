@@ -13,20 +13,13 @@ struct Photo {
     var image: CKAsset?
     let date: Date
     var imageURL: URL?
-//    var imageURL: URL? {
-//        if let url = image?.fileURL {
-//            return url
-//        } else {
-//            return nil
-//        }
-//    }
 }
 
 extension Photo {
     init?(record: CKRecord) {
         guard let date = record["date"] as? Date else { return nil }
         let image = record["image"] as? CKAsset
-        let imageURL = image?.fileURL
+        let imageURL = image?.fileURL as? URL
         self.init(recordId: record.recordID, image: image, date: date, imageURL: imageURL)
     }
 }
