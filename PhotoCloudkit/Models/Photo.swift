@@ -12,14 +12,22 @@ struct Photo {
     var recordId: CKRecord.ID?
     var image: CKAsset?
     let date: Date
+    var imageURL: URL?
+//    var imageURL: URL? {
+//        if let url = image?.fileURL {
+//            return url
+//        } else {
+//            return nil
+//        }
+//    }
 }
 
 extension Photo {
     init?(record: CKRecord) {
-        guard let date = record["date"] as? Date else {
-            return nil
-        }
-        self.init(recordId: record.recordID, date: date)
+        guard let date = record["date"] as? Date else { return nil }
+        let image = record["image"] as? CKAsset
+        let imageURL = image?.fileURL
+        self.init(recordId: record.recordID, image: image, date: date, imageURL: imageURL)
     }
 }
 
@@ -27,6 +35,7 @@ extension Photo {
     var record: CKRecord {
         let record = CKRecord(recordType: "Photo")
         record["date"] = date
+        record["image"] = image
         return record
      }
 }

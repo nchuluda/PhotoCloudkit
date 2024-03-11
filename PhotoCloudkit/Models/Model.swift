@@ -21,30 +21,10 @@ class Model: ObservableObject {
     }
     
     func addPhoto(photo: Photo) async throws {
+        print("addPhoto() called")
         let record = try await db.save(photo.record)
         guard let photo = Photo(record: record) else { return }
         photosDictionary[photo.recordId!] = photo
-    }
-    
-    func uploadPhoto(photo: PhotosPickerItem) async {
-        let newPhoto = CKRecord(recordType: "Photo")
-        newPhoto["date"] = Date()
-        
-        if let data = try? await photo.loadTransferable(type: Data.self) {
-            if let image = UIImage(data: data) {
-                if let contentType = photo.supportedContentTypes.first {
-                    if let url = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?.appendingPathComponent("\(UUID().uuidString).\(contentType.preferredFilenameExtension ?? "")") {
-                        do {
-                            try data.write(to: url)
-                            let asset = CKAsset(fileURL: url)
-                            newPhoto["image"] = asset
-                        } catch {
-                            print("error")
-                        }
-                    }
-                }
-            }
-        }
     }
     
     func populatePhotos() async throws {
@@ -54,6 +34,7 @@ class Model: ObservableObject {
         let records = result.matchResults.compactMap { try? $0.1.get() }
         
         records.forEach { record in
+            print(record)
             photosDictionary[record.recordID] = Photo(record: record)
         }
     }
