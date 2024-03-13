@@ -13,6 +13,9 @@ struct Photo {
     var image: CKAsset?
     let date: Date
     var imageURL: URL?
+    
+    var latitude: Double?
+    var longitude: Double?
 }
 
 extension Photo {
