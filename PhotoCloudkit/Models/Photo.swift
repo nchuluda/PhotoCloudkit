@@ -23,15 +23,24 @@ extension Photo {
         guard let date = record["date"] as? Date else { return nil }
         let image = record["image"] as? CKAsset
         let imageURL = image?.fileURL as? URL
-        self.init(recordId: record.recordID, image: image, date: date, imageURL: imageURL)
+        let location = record["location"] as? CLLocation
+        
+        self.init(recordId: record.recordID, image: image, date: date, imageURL: imageURL, latitude: location?.coordinate.latitude, longitude: location?.coordinate.longitude)
     }
 }
 
 extension Photo {
     var record: CKRecord {
         let record = CKRecord(recordType: "Photo")
+        // use lat and long to create a cllocation. sotre the cllocation in your record
         record["date"] = date
         record["image"] = image
+        
+        if let latitude,
+           let longitude {
+            record["location"] = CLLocation(latitude: latitude, longitude: longitude)
+        }
+        
         return record
      }
 }
