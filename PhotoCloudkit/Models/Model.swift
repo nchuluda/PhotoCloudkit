@@ -14,6 +14,7 @@ import Photos
 @MainActor
 class Model: ObservableObject {
     @Published private var photosDictionary: [CKRecord.ID: Photo] = [:]
+    @Published  var showingRejectedPhotoAlert: Bool = false
     
     private var db = CKContainer.default().publicCloudDatabase
     
@@ -33,21 +34,53 @@ class Model: ObservableObject {
         }
     }
     
+    func photoWithinCircle(photoCoordinates: CLLocationCoordinate2D, centerCoordinates: CLLocationCoordinate2D, radius: Double) -> Bool {
+        let g = centerCoordinates.latitude
+        let f = centerCoordinates.longitude
+        
+        let x = photoCoordinates.latitude
+        let y = photoCoordinates.longitude
+        
+        let distanceFromCenter = sqrt( (pow((x - g), 2) + pow((y - f), 2)) )
+        
+        return distanceFromCenter < radius ? true : false
+    }
+    
+    func checkCoordinates(coordinates: CLLocationCoordinate2D) -> Bool {
+        let latitudeAccepted = (42.331011118311146 ... 42.332134578207956).contains(coordinates.latitude)
+        let longitudeAccepted = (-83.04710234437916 ... -83.0461048163645).contains(coordinates.longitude)
+        
+        return latitudeAccepted && longitudeAccepted ? true : false
+    }
+    
     func upload(selectedPhoto photosPickerItem: PhotosPickerItem?) async throws {
         if let photosPickerItem {
             let savedURL = try await save(photosPickerItem: photosPickerItem)
             let asset = CKAsset(fileURL: savedURL)
-            
-//            try await add(asset: asset)
-            
+                        
             guard let coordinates = getCoordinates(for: photosPickerItem) else { throw NSError(domain: "Couldn't get coordinates", code: 1) }
             
-            let photo = Photo(image: asset, date: Date(), latitude: coordinates.latitude, longitude: coordinates.longitude)
+            // CHECK IF PHOTO IS WITHIN CIRCLE
+            // CENTER OF CAMPUS MARITUS PARK - RADIUS SHOULD BE 0.0006
+            let centerCampusMartius = CLLocationCoordinate2D(latitude: 42.33160449450324, longitude: -83.04668146008768)
             
-            try await addPhoto(photo: photo)
-            print("Photo added")
+            if photoWithinCircle(photoCoordinates: coordinates, centerCoordinates: centerCampusMartius, radius: 0.0006) {
+                let photo = Photo(image: asset, date: Date(), latitude: coordinates.latitude, longitude: coordinates.longitude)
+                try await addPhoto(photo: photo)
+                print("Photo added")
+            } else {
+                throw NSError(domain: "Not within the circle", code: 1)
+            }
             
-//            metaData(for: photosPickerItem)
+            
+            // CHECK IF PHOTO IS IN RECTANGLE GEOFENCE
+//            if checkCoordinates(coordinates: coordinates) {
+//                let photo = Photo(image: asset, date: Date(), latitude: coordinates.latitude, longitude: coordinates.longitude)
+//                try await addPhoto(photo: photo)
+//                print("Photo added")
+//            } else {
+//                throw NSError(domain: "Not within GPS range", code: 1)
+//            }
         }
     }
     
@@ -66,17 +99,22 @@ class Model: ObservableObject {
         return url
     }
     
-//    func add(asset: CKAsset) async throws {
-//        let photo = Photo(image: asset, date: Date())
-//        try await addPhoto(photo: photo)
-//        print("Photo added")
-//    }
-    
     func addPhoto(photo: Photo) async throws {
         let record = try await db.save(photo.record)
         guard let photo = Photo(record: record) else { return }
         photosDictionary[photo.recordId!] = photo
     }
+    
+    func deletePhoto(photoToBeDeleted: Photo) async throws {
+            photosDictionary.removeValue(forKey: photoToBeDeleted.recordId!)
+            
+            do {
+                let _ = try await db.deleteRecord(withID: photoToBeDeleted.recordId!)
+            } catch {
+                photosDictionary[photoToBeDeleted.recordId!] = photoToBeDeleted
+                print(error)
+            }
+        }
     
 //    func metaData(for photosPickerItem: PhotosPickerItem) {
 //        if let id = photosPickerItem.itemIdentifier {

@@ -12,6 +12,7 @@ import CloudKit
 struct ContentView: View {
     @EnvironmentObject private var model: Model
     @State private var photosPickerItem: PhotosPickerItem?
+    @State private var showingRejectedPhotoAlert: Bool = false
     
     var body: some View {
         VStack {
@@ -46,6 +47,9 @@ struct ContentView: View {
             }
         }
         .padding(30)
+        .alert("Only photos taken in Campus Martius park are permitted. Please select a different photo.", isPresented: $showingRejectedPhotoAlert) {
+            Button("OK", role: .cancel) { }
+        }
         .task {
             do {
                 try await model.populatePhotos()
@@ -55,7 +59,11 @@ struct ContentView: View {
         }
         .onChange(of: photosPickerItem) { _, _ in
             Task {
-                try await model.upload(selectedPhoto: photosPickerItem)
+                do {
+                    try await model.upload(selectedPhoto: photosPickerItem)
+                } catch {
+                    showingRejectedPhotoAlert = true
+                }
             }
         }
     }
