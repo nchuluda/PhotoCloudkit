@@ -18,7 +18,7 @@ struct ContentView: View {
         VStack {
             List {
                 ForEach(model.photos, id: \.recordId) { photo in
-                    if let url = photo.imageURL,
+                    if let url = photo.compressedImageURL,
                        let data = try? Data(contentsOf: url),
                        let image = UIImage(data: data) {
                         Image(uiImage: image)

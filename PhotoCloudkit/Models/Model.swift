@@ -10,6 +10,7 @@ import CloudKit
 import SwiftUI
 import PhotosUI
 import Photos
+import CryptoKit
 
 @MainActor
 class Model: ObservableObject {
@@ -53,23 +54,22 @@ class Model: ObservableObject {
     }
     
     func upload(selectedPhoto photosPickerItem: PhotosPickerItem?) async throws {
+        let centerCampusMartius = CLLocationCoordinate2D(latitude: 42.33160449450324, longitude: -83.04668146008768)
+        
         if let photosPickerItem {
-            
-            // GET COORDINATES
             guard let coordinates = getCoordinates(for: photosPickerItem) else { throw NSError(domain: "Couldn't get coordinates", code: 1) }
             
-            // SAVE LOCALLY TO .CACHEDIRECTORY
-            let savedURL = try await saveLocally(photosPickerItem: photosPickerItem)
-            let asset = CKAsset(fileURL: savedURL)
-                        
-            
-            
-            // CHECK IF PHOTO IS WITHIN CIRCLE
-            // CENTER OF CAMPUS MARITUS PARK - RADIUS SHOULD BE 0.0006
-            let centerCampusMartius = CLLocationCoordinate2D(latitude: 42.33160449450324, longitude: -83.04668146008768)
-            
             if photoWithinCircle(photoCoordinates: coordinates, centerCoordinates: centerCampusMartius, radius: 0.0006) {
-                let photo = Photo(image: asset, date: Date(), latitude: coordinates.latitude, longitude: coordinates.longitude)
+                
+                // SAVE FULL RESOLUTION ORIGINAL LOCALLY TO .CACHEDIRECTORY
+                let savedURL = try await saveOriginalLocally(photosPickerItem: photosPickerItem)
+                let asset = CKAsset(fileURL: savedURL)
+                
+                // SAVE COMPRESSED IMAGE LOCALLY TO .CACHEDIRECTORY
+                let compressedSavedURL = try await saveCompressedLocally(photosPickerItem: photosPickerItem)
+                let compressedAsset = CKAsset(fileURL: compressedSavedURL)
+                
+                let photo = Photo(image: asset, compressedImage: compressedAsset, date: Date(), latitude: coordinates.latitude, longitude: coordinates.longitude)
                 try await addPhoto(photo: photo)
                 print("Photo added")
             } else {
@@ -88,27 +88,60 @@ class Model: ObservableObject {
         }
     }
     
-    func saveLocally(photosPickerItem: PhotosPickerItem) async throws -> URL {
+    
+    
+    func saveOriginalLocally(photosPickerItem: PhotosPickerItem) async throws -> URL {
         guard let data = try? await photosPickerItem.loadTransferable(type: Data.self) else {
             throw NSError(domain: "Error loading data from photo", code: 1)
         }
         
-        guard let tempImage = UIImage(data: data) else {
-            print("Error using data for UIImage")
-            throw NSError(domain: "Could not make UIImage from data", code: 1)
-        }
-        
-        let compressedImage = tempImage.jpegData(compressionQuality: 0.8)
+        let md5 = Insecure.MD5.hash(data: data)
         
         let contentType = photosPickerItem.supportedContentTypes.first
         
-        guard let url =  FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?.appendingPathComponent("\(UUID().uuidString).\(contentType?.preferredFilenameExtension ?? "")") else {
+        guard let url =  FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?.appendingPathComponent("\(md5)-full.\(contentType?.preferredFilenameExtension ?? "")") else {
             throw NSError(domain: "Error writing photo to cache directory", code: 1)
         }
         
+//        guard let url =  FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?.appendingPathComponent("\(UUID().uuidString).\(contentType?.preferredFilenameExtension ?? "")") else {
+//            throw NSError(domain: "Error writing photo to cache directory", code: 1)
+//        }
+
         try data.write(to: url)
         return url
     }
+    
+    
+    
+    func saveCompressedLocally(photosPickerItem: PhotosPickerItem) async throws -> URL {
+        guard let data = try? await photosPickerItem.loadTransferable(type: Data.self) else {
+            throw NSError(domain: "Error loading data from photo", code: 1)
+        }
+        
+        let md5 = Insecure.MD5.hash(data: data)
+//        print("compressed md5: \(md5)")
+        
+        guard let tempImage = UIImage(data: data) else {
+            throw NSError(domain: "Error using data for UIImage", code: 1)
+        }
+        
+        guard let compressedImage = tempImage.jpegData(compressionQuality: 0.1) else {
+            throw NSError(domain: "Error creating compressed image with jpegData()", code: 1)
+        }
+        
+        guard let url =  FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?.appendingPathComponent("\(md5)-compressed.jpg)") else {
+            throw NSError(domain: "Error writing compressed photo to cache directory", code: 1)
+        }
+                
+//        guard let url =  FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?.appendingPathComponent("\(UUID().uuidString).jpg)") else {
+//            throw NSError(domain: "Error writing compressed photo to cache directory", code: 1)
+//        }
+        
+        try compressedImage.write(to: url)
+        return url
+    }
+    
+    
     
     func addPhoto(photo: Photo) async throws {
         let record = try await db.save(photo.record)
