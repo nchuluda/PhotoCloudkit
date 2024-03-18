@@ -16,7 +16,7 @@ struct ContentView: View {
     
     var body: some View {
         VStack {
-            ScrollView {
+            List {
                 ForEach(model.photos, id: \.recordId) { photo in
                     if let url = photo.imageURL,
                        let data = try? Data(contentsOf: url),
@@ -26,7 +26,22 @@ struct ContentView: View {
                             .aspectRatio(contentMode: .fit)
                     }
                 }
+                .onDelete { indexSet in
+                    guard let index = indexSet.map({ $0 }).last else {
+                        return
+                    }
+                    
+                    let photo = model.photos[index]
+                    Task {
+                        do {
+                            try await model.deletePhoto(photoToBeDeleted: photo)
+                        } catch {
+                            print(error)
+                        }
+                    }
+                }
             }
+            .listStyle(.plain)
             
             HStack(spacing: 20) {
                 Spacer()

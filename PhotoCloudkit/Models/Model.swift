@@ -37,7 +37,6 @@ class Model: ObservableObject {
     func photoWithinCircle(photoCoordinates: CLLocationCoordinate2D, centerCoordinates: CLLocationCoordinate2D, radius: Double) -> Bool {
         let g = centerCoordinates.latitude
         let f = centerCoordinates.longitude
-        
         let x = photoCoordinates.latitude
         let y = photoCoordinates.longitude
         
@@ -46,19 +45,24 @@ class Model: ObservableObject {
         return distanceFromCenter < radius ? true : false
     }
     
+    // CONFIGURED FOR CAMPUS MARTIUS
     func checkCoordinates(coordinates: CLLocationCoordinate2D) -> Bool {
         let latitudeAccepted = (42.331011118311146 ... 42.332134578207956).contains(coordinates.latitude)
         let longitudeAccepted = (-83.04710234437916 ... -83.0461048163645).contains(coordinates.longitude)
-        
         return latitudeAccepted && longitudeAccepted ? true : false
     }
     
     func upload(selectedPhoto photosPickerItem: PhotosPickerItem?) async throws {
         if let photosPickerItem {
-            let savedURL = try await save(photosPickerItem: photosPickerItem)
+            
+            // GET COORDINATES
+            guard let coordinates = getCoordinates(for: photosPickerItem) else { throw NSError(domain: "Couldn't get coordinates", code: 1) }
+            
+            // SAVE LOCALLY TO .CACHEDIRECTORY
+            let savedURL = try await saveLocally(photosPickerItem: photosPickerItem)
             let asset = CKAsset(fileURL: savedURL)
                         
-            guard let coordinates = getCoordinates(for: photosPickerItem) else { throw NSError(domain: "Couldn't get coordinates", code: 1) }
+            
             
             // CHECK IF PHOTO IS WITHIN CIRCLE
             // CENTER OF CAMPUS MARITUS PARK - RADIUS SHOULD BE 0.0006
@@ -84,10 +88,17 @@ class Model: ObservableObject {
         }
     }
     
-    func save(photosPickerItem: PhotosPickerItem) async throws -> URL {
+    func saveLocally(photosPickerItem: PhotosPickerItem) async throws -> URL {
         guard let data = try? await photosPickerItem.loadTransferable(type: Data.self) else {
             throw NSError(domain: "Error loading data from photo", code: 1)
         }
+        
+        guard let tempImage = UIImage(data: data) else {
+            print("Error using data for UIImage")
+            throw NSError(domain: "Could not make UIImage from data", code: 1)
+        }
+        
+        let compressedImage = tempImage.jpegData(compressionQuality: 0.8)
         
         let contentType = photosPickerItem.supportedContentTypes.first
         
